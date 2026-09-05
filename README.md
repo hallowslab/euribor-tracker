@@ -104,15 +104,18 @@ orchestrates the common operations; systemd does the actual process supervision.
 ### First install
 
 ```bash
-# on the VM/LXC, from a checkout of this repo:
-sudo apt-get update && sudo apt-get install -y make curl   # Debian/Ubuntu
+# on the VM/LXC, from a checkout of this repo.
+# Works as root (typical in an LXC, no sudo required) or as a sudo user:
 make deploy
-# or skip the initial data import: SKIP_BACKFILL=1 sudo ./deploy/install.sh
+# options: SKIP_BACKFILL=1 make deploy          (skip the initial data import)
+#          INSTALL_NGINX=1 make deploy          (also install the nginx LAN proxy)
 ```
 
 `install.sh` is idempotent. It: installs `uv`, creates the `euribortracker` user,
 copies the source to `/opt/euribortracker`, runs `uv sync`, imports full history
-(1999→today), and enables+starts `euribortracker.service`.
+(1999→today), and enables+starts `euribortracker.service` plus the daily update
+timer. It uses `runuser` (no `sudo` needed in containers); if you prefer to call
+the script directly: `sudo bash deploy/install.sh`.
 
 The service binds `127.0.0.1:8000`. To expose it on the LAN, use the provided
 optional nginx reverse proxy (recommended) or edit the service to bind `0.0.0.0`.

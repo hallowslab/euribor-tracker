@@ -20,6 +20,18 @@ if [[ "$EUID" -ne 0 ]]; then
   exit 1
 fi
 
+# Run a command as the app user. Works without sudo on minimal LXC/containers.
+as_user() {
+  if command -v runuser >/dev/null 2>&1; then
+    runuser -u "$APP_USER" -- "$@"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo -u "$APP_USER" "$@"
+  else
+    echo "Cannot switch to user $APP_USER (no runuser/sudo)" >&2
+    exit 1
+  fi
+}
+
 echo ">> Refreshing source…"
 install -d -o "$APP_USER" -g "$APP_USER" "$APP_DIR"
 tar --exclude=.git --exclude=.venv --exclude=data -C "$SRC_DIR" -cf - . | \
@@ -27,10 +39,10 @@ tar --exclude=.git --exclude=.venv --exclude=data -C "$SRC_DIR" -cf - . | \
 chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 
 echo ">> Reinstalling dependencies…"
-sudo -u "$APP_USER" "$UV_BIN" sync --project "$APP_DIR"
+as_user "$UV_BIN" sync --project "$APP_DIR"
 
 echo ">> Refreshing current-year Euribor data…"
-sudo -u "$APP_USER" "$UV_BIN" run --project "$APP_DIR" euribortracker update
+as_user "$UV_BIN" run --project "$APP_DIR" euribortracker update
 
 echo ">> Restarting service…"
 systemctl restart "$SERVICE"

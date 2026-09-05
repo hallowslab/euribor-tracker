@@ -28,6 +28,18 @@ need_root() {
   fi
 }
 
+# Run a command as the app user. Works without sudo on minimal LXC/containers.
+as_user() {
+  if command -v runuser >/dev/null 2>&1; then
+    runuser -u "$APP_USER" -- "$@"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo -u "$APP_USER" "$@"
+  else
+    echo "Cannot switch to user $APP_USER (no runuser/sudo)" >&2
+    exit 1
+  fi
+}
+
 install_uv() {
   if command -v uv >/dev/null 2>&1; then
     UV_BIN="$(command -v uv)"
@@ -68,7 +80,7 @@ copy_source() {
 
 sync_deps() {
   echo ">> Installing dependencies (uv sync)…"
-  sudo -u "$APP_USER" "$UV_BIN" sync --project "$APP_DIR"
+  as_user "$UV_BIN" sync --project "$APP_DIR"
 }
 
 backfill() {
@@ -77,7 +89,7 @@ backfill() {
     return
   fi
   echo ">> Importing historical Euribor data (1999→today)…"
-  sudo -u "$APP_USER" "$UV_BIN" run --project "$APP_DIR" euribortracker backfill
+  as_user "$UV_BIN" run --project "$APP_DIR" euribortracker backfill
 }
 
 install_unit() {
