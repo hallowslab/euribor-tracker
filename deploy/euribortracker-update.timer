@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily Euribor data refresh
+ConditionACPower=true
+
+[Timer]
+# Euribor is fixed at ~11:00 CET; refresh in the early afternoon, server local time.
+# Adjust this line to change the schedule (see systemd.time(7) for syntax).
+OnCalendar=*-*-* 13:00:00
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

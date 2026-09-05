@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Euribor Tracker{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/">Euribor&nbsp;Tracker</a>
+      <nav class="nav">
+        <a href="/" class="{{ 'active' if page == 'dashboard' }}">Dashboard</a>
+        <a href="/history" class="{{ 'active' if page == 'history' }}">History</a>
+        <a href="/mortgage" class="{{ 'active' if page == 'mortgage' }}">Mortgage</a>
+        <a href="/alerts" class="{{ 'active' if page == 'alerts' }}">Alerts</a>
+      </nav>
+    </div>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">
+    <p>
+      <strong>Not financial advice.</strong> Observed Euribor fixings, calculated
+      mortgage rates and simulated scenarios are shown separately. All mortgage
+      figures are <strong>estimates</strong> unless the exact contractual rules of the
+      mortgage are configured. Euribor&reg; is a registered trademark of EMMI.
+    </p>
+  </footer>
+</body>
+</html>

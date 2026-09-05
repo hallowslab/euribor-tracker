@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}History · Euribor Tracker{% endblock %}
+{% block content %}
+
+<div class="tenor-switch">
+  <span class="tenor-switch-label">Maturity</span>
+  {% for t in tenors %}
+    <a href="/history?tenor={{ t.value }}&period={{ period }}" class="tenor-btn {{ 'active' if t == selected_tenor }}">{{ t.value }}</a>
+  {% endfor %}
+</div>
+
+<div class="tenor-switch">
+  <span class="tenor-switch-label">Period</span>
+  {% for key, label in period_labels.items() %}
+    <a href="/history?tenor={{ selected_tenor.value }}&period={{ key }}" class="tenor-btn {{ 'active' if period == key }}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+<section class="card">
+  <h2>{{ selected_tenor.label }} — {{ period_labels[period] }}</h2>
+  <div class="chart-wrap"><canvas id="rateChart" height="80"></canvas></div>
+</section>
+
+{% if not stats.empty %}
+<div class="grid">
+  <section class="card">
+    <h2>Statistics</h2>
+    <table class="kv">
+      <tr><td>Period start</td><td>{{ stats.start_date }} — {{ "%.3f"|format(stats.period_start_rate) }}%</td></tr>
+      <tr><td>Latest</td><td>{{ stats.latest_date }} — {{ "%.3f"|format(stats.latest_rate) }}%</td></tr>
+      <tr><td>Previous fixing</td><td>{{ stats.previous_date }} — {{ "%.3f"|format(stats.previous_rate) }}%</td></tr>
+      <tr>
+        <td>Change vs previous fixing</td>
+        <td>
+          <span class="{{ 'neg' if stats.change_from_previous_pp < 0 else 'pos' }}">{{ '%+.3f'|format(stats.change_from_previous_pp) }} pp</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Change over period</td>
+        <td>
+          <span class="{{ 'neg' if stats.change_over_period_pp < 0 else 'pos' }}">{{ '%+.3f'|format(stats.change_over_period_pp) }} pp</span>
+          {% if stats.change_over_period_pct is not none %}
+            <span class="muted">({{ '%+.1f'|format(stats.change_over_period_pct) }}%)</span>
+          {% endif %}
+        </td>
+      </tr>
+      <tr><td>Minimum</td><td>{{ "%.3f"|format(stats.min_rate) }}%</td></tr>
+      <tr><td>Maximum</td><td>{{ "%.3f"|format(stats.max_rate) }}%</td></tr>
+      <tr><td>Average</td><td>{{ "%.3f"|format(stats.avg_rate) }}%</td></tr>
+      <tr><td>Fixings in period</td><td>{{ stats.count }}</td></tr>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Change since…</h2>
+    <table class="kv">
+      {% for label, d in stats.deltas.items() %}
+        <tr>
+          <td>{{ label }} ago</td>
+          <td>
+            <span class="{{ 'neg' if d.change_pp < 0 else 'pos' }}">{{ '%+.3f'|format(d.change_pp) }} pp</span>
+            {% if d.change_pct is not none %}
+              <span class="muted">({{ '%+.1f'|format(d.change_pct) }}%)</span>
+            {% endif %}
+            <span class="muted">— {{ d.anchor_date }}</span>
+          </td>
+        </tr>
+      {% endfor %}
+    </table>
+  </section>
+</div>
+
+<section class="card">
+  <h2>Data table</h2>
+  <div class="table-scroll">
+    <table class="data">
+      <thead>
+        <tr><th>Date</th><th>Rate</th><th>Change (pp)</th></tr>
+      </thead>
+      <tbody>
+        {% for p in chart_data %}
+          <tr>
+            <td>{{ p.date }}</td>
+            <td>{{ "%.3f"|format(p.rate) }}%</td>
+            <td>
+              {% if not loop.last %}
+                <span class="{{ 'neg' if p.rate - chart_data[loop.index].rate < 0 else 'pos' }}">
+                  {{ '%+.3f'|format(p.rate - chart_data[loop.index].rate) }}
+                </span>
+              {% else %}<span class="muted">—</span>{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<script>
+const points = {{ chart_data | tojson }};
+new Chart(document.getElementById('rateChart'), {
+  type: 'line',
+  data: {
+    labels: points.map(p => p.date),
+    datasets: [{
+      label: '{{ selected_tenor.value }} Euribor',
+      data: points.map(p => p.rate),
+      borderColor: '#2563eb',
+      backgroundColor: 'rgba(37,99,235,0.08)',
+      fill: true,
+      pointRadius: 0,
+      borderWidth: 1.5,
+      tension: 0.1
+    }]
+  },
+  options: {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(3) + '%' } },
+      legend: { display: false }
+    },
+    scales: {
+      x: { ticks: { maxTicksLimit: 12, maxRotation: 0 } },
+      y: { ticks: { callback: v => v.toFixed(2) + '%' } }
+    }
+  }
+});
+</script>
+{% endblock %}

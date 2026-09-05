@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Alerts · Euribor Tracker{% endblock %}
+{% block content %}
+
+<h1>Alerts</h1>
+<p class="muted">
+  Alerts are evaluated on new data (run <code>uv run euribortracker evaluate-alerts</code>
+  or call <code>POST /api/alerts/evaluate</code>). Additional notification channels can be
+  registered without changing alert logic. The default channel writes to the log.
+</p>
+
+<div class="grid">
+  <section class="card">
+    <h2>Add alert</h2>
+    <form method="post" action="/api/alerts" id="alert-form" class="form">
+      <div class="form-row">
+        <label>Type
+          <select name="type">
+            <option value="below">Falls below X%</option>
+            <option value="above">Rises above X%</option>
+            <option value="change_pp_gt">Changes by more than X pp</option>
+            <option value="yearly_high">New yearly high</option>
+            <option value="yearly_low">New yearly low</option>
+            <option value="revision_soon">Mortgage revision coming up</option>
+          </select>
+        </label>
+        <label>Tenor
+          <select name="tenor">
+            {% for t in tenors %}<option value="{{ t.value }}">{{ t.value }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>Threshold (% or pp)
+          <input type="number" step="0.01" name="threshold">
+        </label>
+        <label>Revision date (for "revision soon")
+          <input type="date" name="next_revision_date">
+        </label>
+        <label>Days ahead
+          <input type="number" min="1" value="30" name="days_ahead">
+        </label>
+      </div>
+      <button type="submit" class="btn-primary">Add alert</button>
+    </form>
+    <div id="alert-msg" class="muted"></div>
+  </section>
+
+  <section class="card">
+    <h2>Configured alerts</h2>
+    {% if alerts %}
+      <table class="data">
+        <thead><tr><th>Type</th><th>Tenor</th><th>Params</th><th>Triggered</th><th></th></tr></thead>
+        <tbody>
+          {% for a in alerts %}
+            <tr>
+              <td>{{ a.type }}</td>
+              <td>{{ a.tenor }}</td>
+              <td>
+                {% if a.params.threshold is not none %}threshold={{ a.params.threshold }}{% endif %}
+                {% if a.params.threshold_pp is not none %}pp={{ a.params.threshold_pp }}{% endif %}
+                {% if a.params.next_revision_date %}date={{ a.params.next_revision_date }}{% endif %}
+                {% if a.params.days_ahead %}ahead={{ a.params.days_ahead }}{% endif %}
+              </td>
+              <td>{{ a.triggered_count }}{% if a.last_triggered_at %} <span class="muted">({{ a.last_triggered_at[:10] }})</span>{% endif %}</td>
+              <td>
+                <button class="btn-small" onclick="deleteAlert({{ a.id }})">Delete</button>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No alerts configured.</p>
+    {% endif %}
+  </section>
+</div>
+
+<script>
+const form = document.getElementById('alert-form');
+const msg = document.getElementById('alert-msg');
+form.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const fd = new FormData(form);
+  const payload = {
+    type: fd.get('type'),
+    tenor: fd.get('tenor'),
+    threshold: fd.get('threshold') ? parseFloat(fd.get('threshold')) : null,
+    threshold_pp: fd.get('threshold') ? parseFloat(fd.get('threshold')) : null,
+    next_revision_date: fd.get('next_revision_date') || null,
+    days_ahead: fd.get('days_ahead') ? parseInt(fd.get('days_ahead'), 10) : 30
+  };
+  const res = await fetch('/api/alerts', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  });
+  if (res.ok) { location.reload(); }
+  else { msg.textContent = 'Error: ' + (await res.text()); }
+});
+
+async function deleteAlert(id) {
+  await fetch('/api/alerts/' + id, { method: 'DELETE' });
+  location.reload();
+}
+</script>
+{% endblock %}

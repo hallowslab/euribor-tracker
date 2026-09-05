@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Euribor Tracker{% endblock %}
+{% block content %}
+
+<div class="tenor-switch">
+  <span class="tenor-switch-label">Maturity</span>
+  {% for t in tenors %}
+    <a href="/?tenor={{ t.value }}" class="tenor-btn {{ 'active' if t == selected_tenor }}">
+      {{ t.value }}
+    </a>
+  {% endfor %}
+</div>
+
+<div class="grid">
+  <section class="card hero">
+    <div class="hero-rate">
+      {% if latest %}
+        <div class="hero-rate-value">{{ "%.3f"|format(latest.rate) }}<span class="pct">%</span></div>
+        <div class="hero-rate-label">{{ selected_tenor.short_label }}</div>
+        <div class="hero-rate-sub">
+          Fixed {{ latest.fixing_date }}
+          {% if latest.is_stale %}
+            <span class="badge warn">stale — not today's fixing</span>
+          {% endif %}
+        </div>
+        <div class="hero-rate-change">
+          {% if latest.change_pp is not none %}
+            <span class="{{ 'neg' if latest.change_pp < 0 else 'pos' }}">
+              {{ '%+.3f'|format(latest.change_pp) }} pp
+            </span>
+            vs previous publication
+            {% if latest.change_pct is not none %}
+              ({{ '%+.1f'|format(latest.change_pct) }}%)
+            {% endif %}
+          {% else %}
+            <span class="muted">No previous fixing</span>
+          {% endif %}
+        </div>
+        <div class="muted source-note">
+          {{ latest.source }}
+        </div>
+      {% else %}
+        <div class="hero-rate-value muted">No data</div>
+        <div class="hero-rate-label">Run <code>uv run euribortracker backfill</code></div>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if config %}
+  <section class="card">
+    <h2>Mortgage <span class="badge">estimate</span></h2>
+    {% if mortgage %}
+      <table class="kv">
+        <tr><td>Spread</td><td>{{ "%.3f"|format(config.spread) }} pp</td></tr>
+        {% if mortgage.estimated_nominal_rate is defined and mortgage.estimated_nominal_rate is not none %}
+          <tr>
+            <td>Est. mortgage rate</td>
+            <td>
+              {{ "%.3f"|format(mortgage.estimated_nominal_rate) }}%
+              <span class="muted">({{ "%.3f"|format(latest.rate) }}% + {{ "%.3f"|format(config.spread) }} pp)</span>
+            </td>
+          </tr>
+        {% endif %}
+        {% if mortgage.current_nominal_rate is defined and mortgage.current_nominal_rate is not none %}
+          <tr><td>Current rate</td><td>{{ "%.3f"|format(mortgage.current_nominal_rate) }}%</td></tr>
+        {% endif %}
+        {% if mortgage.next_revision_date is defined and mortgage.next_revision_date %}
+          <tr>
+            <td>Next revision</td>
+            <td>
+              {{ mortgage.next_revision_date }}
+              {% if revision_days is not none %}
+                <span class="muted">({{ revision_days }} days)</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endif %}
+        {% if mortgage.current_period_euribor is defined and mortgage.current_period_euribor is not none %}
+          <tr>
+            <td>Euribor in current period</td>
+            <td>{{ "%.3f"|format(mortgage.current_period_euribor) }}% <span class="muted">(ref. {{ mortgage.current_period_euribor_date }})</span></td>
+          </tr>
+        {% endif %}
+        {% if mortgage.estimated_next_nominal_rate is defined and mortgage.estimated_next_nominal_rate is not none %}
+          <tr>
+            <td>Est. next rate</td>
+            <td>{{ "%.3f"|format(mortgage.estimated_next_nominal_rate) }}%
+              <span class="muted">({{ '%+.3f'|format(mortgage.estimated_next_change_pp) }} pp)</span>
+            </td>
+          </tr>
+        {% endif %}
+        {% if mortgage.estimated_monthly_payment is defined and mortgage.estimated_monthly_payment is not none %}
+          <tr>
+            <td>Est. monthly payment</td>
+            <td>€{{ "%.2f"|format(mortgage.estimated_monthly_payment) }}
+              {% if mortgage.estimated_payment_change_eur is defined and mortgage.estimated_payment_change_eur is not none %}
+                <span class="muted">({{ '%+.2f'|format(mortgage.estimated_payment_change_eur) }} vs current)</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endif %}
+      </table>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <section class="card">
+    <h2>Statistics <span class="muted">last 12 months</span></h2>
+    <table class="kv">
+      <tr><td>Minimum</td><td>{{ "%.3f"|format(stats.min_rate) }}%</td></tr>
+      <tr><td>Maximum</td><td>{{ "%.3f"|format(stats.max_rate) }}%</td></tr>
+      <tr><td>Average</td><td>{{ "%.3f"|format(stats.avg_rate) }}%</td></tr>
+      {% for label, d in stats.deltas.items() %}
+        <tr>
+          <td>{{ label }} change</td>
+          <td>
+            <span class="{{ 'neg' if d.change_pp < 0 else 'pos' }}">{{ '%+.3f'|format(d.change_pp) }} pp</span>
+            {% if d.change_pct is not none %}<span class="muted">({{ '%+.1f'|format(d.change_pct) }}%)</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </table>
+  </section>
+</div>
+
+<section class="card">
+  <h2>{{ selected_tenor.label }} — last 2 years <a class="muted" href="/history?tenor={{ selected_tenor.value }}">full history &rarr;</a></h2>
+  <div class="chart-wrap"><canvas id="rateChart" height="90"></canvas></div>
+</section>
+
+<script>
+const points = {{ chart_data | tojson }};
+new Chart(document.getElementById('rateChart'), {
+  type: 'line',
+  data: {
+    labels: points.map(p => p.date),
+    datasets: [{
+      label: '{{ selected_tenor.value }} Euribor',
+      data: points.map(p => p.rate),
+      borderColor: '#2563eb',
+      backgroundColor: 'rgba(37,99,235,0.08)',
+      fill: true,
+      pointRadius: 0,
+      borderWidth: 1.5,
+      tension: 0.1
+    }]
+  },
+  options: {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      tooltip: {
+        callbacks: {
+          label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(3) + '%'
+        }
+      },
+      legend: { display: false }
+    },
+    scales: {
+      x: { ticks: { maxTicksLimit: 10, maxRotation: 0 } },
+      y: { ticks: { callback: v => v.toFixed(2) + '%' } }
+    }
+  }
+});
+</script>
+{% endblock %}
