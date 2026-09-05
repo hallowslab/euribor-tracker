@@ -71,8 +71,8 @@ def history(request: Request, tenor: str | None = None, period: str = "all"):
         period = "all"
     stats = state.rates.stats(t, period)
     end = date.today()
-    start = stats["start_date"] if not stats.get("empty") else end
-    chart = state.rates.series(t, date.fromisoformat(start), end)
+    start = date.fromisoformat(stats["start_date"]) if not stats.get("empty") else end
+    chart = state.rates.series(t, start, end)
     return templates.TemplateResponse(
         request,
         "history.html",

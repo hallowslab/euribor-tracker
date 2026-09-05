@@ -104,6 +104,7 @@
   </section>
   {% endif %}
 
+  {% if not stats.empty %}
   <section class="card">
     <h2>Statistics <span class="muted">last 12 months</span></h2>
     <table class="kv">
@@ -121,6 +122,7 @@
       {% endfor %}
     </table>
   </section>
+  {% endif %}
 </div>
 
 <section class="card">

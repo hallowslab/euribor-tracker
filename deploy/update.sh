@@ -11,6 +11,7 @@ set -euo pipefail
 
 APP_USER="euribortracker"
 APP_DIR="/opt/euribortracker"
+DATA_DIR="/var/lib/euribortracker"
 SERVICE="euribortracker.service"
 SRC_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # Always use the system-wide uv path (a uv under /root is not traversable by the app user).
@@ -19,6 +20,9 @@ if [[ ! -x "$UV_BIN" ]]; then
   echo "uv not found at $UV_BIN — run deploy/install.sh first." >&2
   exit 1
 fi
+
+# CLI commands must write to the same DB the service reads.
+export EURIBORTRACKER_DB_PATH="$DATA_DIR/euribor.db"
 
 if [[ "$EUID" -ne 0 ]]; then
   echo "Run as root: sudo $0 ${1:-}" >&2

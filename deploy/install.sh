@@ -21,6 +21,10 @@ UNIT_DIR="/etc/systemd/system"
 SRC_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 UV_BIN=""
 
+# The systemd unit reads the DB from DATA_DIR; CLI commands must use the same
+# path (exported so runuser passes it through to the app user).
+export EURIBORTRACKER_DB_PATH="$DATA_DIR/euribor.db"
+
 need_root() {
   if [[ "$EUID" -ne 0 ]]; then
     echo "Run as root: sudo $0 ${1:-}" >&2

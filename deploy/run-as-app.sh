@@ -4,6 +4,10 @@
 set -euo pipefail
 
 APP_USER="euribortracker"
+DATA_DIR="/var/lib/euribortracker"
+
+# Make CLI commands write to the same DB the systemd service reads.
+export EURIBORTRACKER_DB_PATH="$DATA_DIR/euribor.db"
 
 if [[ "$EUID" -eq 0 ]]; then
   exec runuser -u "$APP_USER" -- "$@"
