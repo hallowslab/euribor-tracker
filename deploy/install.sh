@@ -41,20 +41,24 @@ as_user() {
 }
 
 install_uv() {
-  if command -v uv >/dev/null 2>&1; then
-    UV_BIN="$(command -v uv)"
-  elif [[ -x "$HOME/.local/bin/uv" ]]; then
-    UV_BIN="$HOME/.local/bin/uv"
-  else
-    echo ">> Installing uv (Astral)…"
-    export HOME=/root
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-    UV_BIN="$HOME/.local/bin/uv"
+  # uv must be reachable by the service user. The Astral installer defaults to
+  # $HOME/.local/bin (i.e. /root/.local/bin), which the app user cannot traverse
+  # (0700). So install uv directly into /usr/local/bin via UV_INSTALL_DIR.
+  # A real binary there is fine; a symlink into /root (or any user home) is NOT
+  # usable by other users and is replaced on re-run.
+  if [[ -x /usr/local/bin/uv && ! -L /usr/local/bin/uv ]]; then
+    UV_BIN="/usr/local/bin/uv"
+    echo "   uv: $UV_BIN"
+    return
   fi
-  # Make uv available on PATH for other users (systemd unit / sudo -u calls).
-  if [[ ! -e /usr/local/bin/uv ]]; then
-    ln -s "$UV_BIN" /usr/local/bin/uv
+  echo ">> Installing uv (Astral) to /usr/local/bin…"
+  export HOME=/root
+  curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+  if [[ ! -x /usr/local/bin/uv || -L /usr/local/bin/uv ]]; then
+    echo "uv installation failed" >&2
+    exit 1
   fi
+  UV_BIN="/usr/local/bin/uv"
   echo "   uv: $UV_BIN"
 }
 

@@ -13,7 +13,12 @@ APP_USER="euribortracker"
 APP_DIR="/opt/euribortracker"
 SERVICE="euribortracker.service"
 SRC_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-UV_BIN="$(command -v uv || echo /usr/local/bin/uv)"
+# Always use the system-wide uv path (a uv under /root is not traversable by the app user).
+UV_BIN="/usr/local/bin/uv"
+if [[ ! -x "$UV_BIN" ]]; then
+  echo "uv not found at $UV_BIN — run deploy/install.sh first." >&2
+  exit 1
+fi
 
 if [[ "$EUID" -ne 0 ]]; then
   echo "Run as root: sudo $0 ${1:-}" >&2
